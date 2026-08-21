@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BakeryOS - 烘焙與訂單管理系統 (含BOM配方)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 text-slate-800 font-sans antialiased pb-16">
+    
+    <!-- 頂部導航列 -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <span class="text-2xl">🥐</span>
+                <h1 class="text-base font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">BakeryOS</h1>
+            </div>
+            <nav class="flex gap-1 overflow-x-auto py-2">
+                <button onclick="switchTab('orders')" id="tabOrd" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-50 text-orange-600 whitespace-nowrap">📋 訂單管理</button>
+                <button onclick="switchTab('boms')" id="tabBom" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 whitespace-nowrap">📜 產品配方(BOM)</button>
+                <button onclick="switchTab('inventory')" id="tabInv" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 whitespace-nowrap">📦 庫存主表</button>
+                <button onclick="switchTab('purchases')" id="tabPur" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 whitespace-nowrap">🛒 進貨記錄</button>
+                <button onclick="switchTab('consumption')" id="tabCon" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 whitespace-nowrap">📉 消耗登記</button>
+                <button onclick="switchTab('reports')" id="tabRep" class="px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 whitespace-nowrap">📊 統計報表</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="max-w-6xl mx-auto p-4 sm:p-6 space-y-4">
+        
+        <!-- 0. 訂單管理 -->
+        <div id="viewOrders" class="space-y-3">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">📋 客戶訂單管理</h2>
+                <button onclick="openOrderModal()" class="bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm">＋ 新增客戶訂單</button>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[900px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs font-semibold uppercase">
+                            <th class="p-3">訂單編號</th>
+                            <th class="p-3">客戶姓名 / 電話</th>
+                            <th class="p-3">預定取貨日</th>
+                            <th class="p-3">訂購品項與數量</th>
+                            <th class="p-3">總金額</th>
+                            <th class="p-3">付款狀態</th>
+                            <th class="p-3">訂單狀態</th>
+                            <th class="p-3 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableOrders" class="text-sm divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 0.5 產品配方 (BOM) -->
+        <div id="viewBoms" class="space-y-3 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">📜 產品配方管理 (BOM)</h2>
+                <button onclick="openBomModal()" class="bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm">＋ 新增/編輯產品配方</button>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs font-semibold uppercase">
+                            <th class="p-3">成品名稱</th>
+                            <th class="p-3">所需原物料與比例明細</th>
+                            <th class="p-3 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBoms" class="text-sm divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 1. 庫存主表 -->
+        <div id="viewInventory" class="space-y-3 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">📦 原物料庫存總覽</h2>
+                <button onclick="openModal('modalInventory')" class="bg-orange-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm">＋ 新增原物料主檔</button>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs font-semibold uppercase">
+                            <th class="p-3">材料名稱</th>
+                            <th class="p-3">廠牌</th>
+                            <th class="p-3">進貨規格設定</th>
+                            <th class="p-3">現有庫存總量</th>
+                            <th class="p-3">安全庫存</th>
+                            <th class="p-3 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableInventory" class="text-sm divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 2. 進貨記錄 -->
+        <div id="viewPurchases" class="space-y-3 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">🛒 詳細進貨記錄</h2>
+                <button onclick="openPurchaseModal()" class="bg-sky-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm">＋ 新增詳細進貨</button>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[1000px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs font-semibold uppercase">
+                            <th class="p-3">採買日期</th>
+                            <th class="p-3">材料名稱</th>
+                            <th class="p-3">廠牌</th>
+                            <th class="p-3">進貨數量(包/個)</th>
+                            <th class="p-3">換算總量</th>
+                            <th class="p-3">單價</th>
+                            <th class="p-3">總價</th>
+                            <th class="p-3">到期日</th>
+                            <th class="p-3">採買途徑</th>
+                            <th class="p-3">發票號碼</th>
+                            <th class="p-3 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tablePurchases" class="text-sm divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 3. 消耗登記 -->
+        <div id="viewConsumption" class="space-y-3 hidden">
+            <div class="flex justify-between items-center">
+                <h2 class="text-lg font-bold text-slate-800">📉 消耗登記記錄</h2>
+                <button onclick="openConsumptionModal()" class="bg-rose-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium shadow-sm">＋ 新增消耗登記</button>
+            </div>
+            <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-x-auto">
+                <table class="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                        <tr class="bg-slate-50 text-slate-400 text-xs font-semibold uppercase">
+                            <th class="p-3">日期</th>
+                            <th class="p-3">名稱</th>
+                            <th class="p-3">用途類型</th>
+                            <th class="p-3">消耗數量</th>
+                            <th class="p-3">備註說明</th>
+                            <th class="p-3 text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableConsumption" class="text-sm divide-y divide-slate-100"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- 4. 統計報表 -->
+        <div id="viewReports" class="space-y-3 hidden">
+            <h2 class="text-lg font-bold text-slate-800">📊 區間統計與報表</h2>
+            <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                <div class="grid grid-cols-2 gap-3">
+                    <div><label class="block text-xs text-slate-500 mb-1">開始日期</label><input id="reportStart" type="date" class="w-full border bg-slate-50 p-2 rounded-lg text-sm"></div>
+                    <div><label class="block text-xs text-slate-500 mb-1">結束日期</label><input id="reportEnd" type="date" class="w-full border bg-slate-50 p-2 rounded-lg text-sm"></div>
+                </div>
+                <button onclick="generateReport()" class="w-full bg-indigo-600 text-white py-2 rounded-lg text-sm font-medium">🔍 查詢統計</button>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><span class="text-xs text-slate-400">📦 總訂單數</span><div id="repTotalOrders" class="text-xl font-bold text-amber-600 mt-1">0 筆</div></div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><span class="text-xs text-slate-400">💰 總進貨金額</span><div id="repTotalCost" class="text-xl font-bold text-orange-600 mt-1">NT$ 0</div></div>
+                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm"><span class="text-xs text-slate-400">📉 總消耗筆數</span><div id="repTotalConCount" class="text-xl font-bold text-rose-600 mt-1">0 筆</div></div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 彈窗：新增/編輯訂單 -->
+    <div id="modalOrder" class="fixed inset-0 bg-slate-900/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-3">
+            <h3 id="ordModalTitle" class="font-bold text-base">📋 客戶訂單登記</h3>
+            <input type="hidden" id="ordEditIndex" value="-1">
+            <div class="grid grid-cols-2 gap-2">
+                <div><label class="block text-xs text-slate-400 mb-1">預定取貨日</label><input id="oDate" type="date" onchange="onOrderDateChange()" class="w-full border p-2 rounded-lg text-sm"></div>
+                <div><label class="block text-xs text-slate-400 mb-1">訂單編號</label><input id="oId" readonly class="w-full border bg-slate-50 text-slate-500 font-mono p-2 rounded-lg text-sm" placeholder="自動生成"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <input id="oCustomer" placeholder="客戶姓名" class="border p-2.5 rounded-lg text-sm">
+                <input id="oPhone" placeholder="連絡電話" class="border p-2.5 rounded-lg text-sm">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <input id="oItemName" list="bomProductOptions" placeholder="品項名稱 (例: 黃油曲奇)" class="border p-2.5 rounded-lg text-sm">
+                <datalist id="bomProductOptions"></datalist>
+                <input id="oQty" type="number" placeholder="數量" class="border p-2.5 rounded-lg text-sm" value="1">
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <input id="oTotal" type="number" placeholder="總金額 ($)" class="border p-2.5 rounded-lg text-sm">
+                <select id="oPayStatus" class="border p-2.5 rounded-lg text-sm"><option value="未付款">未付款</option><option value="已付款">已付款</option></select>
+                <select id="oStatus" class="border p-2.5 rounded-lg text-sm"><option value="待出貨">待出貨</option><option value="製作中">製作中</option><option value="已完成">已完成</option><option value="已取消">已取消</option></select>
+            </div>
+            <div class="flex justify-end gap-2 pt-2"><button onclick="closeModal('modalOrder')" class="px-3 py-1.5 text-xs text-slate-500">取消</button><button onclick="saveOrderItem()" class="bg-orange-600 text-white px-4 py-1.5 rounded-lg text-xs">確認儲存</button></div>
+        </div>
+    </div>
+
+    <!-- 彈窗：一次性新增/編輯產品配方 (BOM) 多原料清單 -->
+    <div id="modalBom" class="fixed inset-0 bg-slate-900/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-lg rounded-2xl p-5 space-y-3 max-h-[90vh] overflow-y-auto">
+            <h3 id="bomModalTitle" class="font-bold text-base">📜 產品配方設定 (BOM)</h3>
+            <input type="hidden" id="bomEditProduct" value="">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">成品名稱</label>
+                <input id="bProduct" placeholder="例如: 黃油曲奇" class="w-full border p-2.5 rounded-lg text-sm">
+            </div>
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label class="block text-xs font-semibold text-slate-600">📦 所需原物料與比例清單</label>
+                    <button type="button" onclick="addBomRow()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-2.5 py-1 rounded text-xs font-medium">＋ 增加原料</button>
+                </div>
+                <div id="bomRowsContainer" class="space-y-2 max-h-60 overflow-y-auto p-1 border rounded-lg bg-slate-50">
+                    <!-- 動態原料行將在此生成 -->
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeModal('modalBom')" class="px-3 py-1.5 text-xs text-slate-500">取消</button>
+                <button onclick="saveBomRecipe()" class="bg-amber-600 text-white px-4 py-1.5 rounded-lg text-xs">確認儲存整組配方</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 彈窗：新增/編輯原物料主檔 -->
+    <div id="modalInventory" class="fixed inset-0 bg-slate-900/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-3">
+            <h3 id="invModalTitle" class="font-bold text-base">➕ 新增原物料主檔</h3>
+            <input type="hidden" id="invEditIndex" value="-1">
+            <input id="matName" placeholder="物料名稱 (如: 黃油 / 低筋麵粉)" class="w-full border p-2.5 rounded-lg text-sm">
+            <input id="matBrand" placeholder="廠牌 (如: 安佳 / 日本粉)" class="w-full border p-2.5 rounded-lg text-sm">
+            
+            <div class="bg-amber-50/60 border border-amber-200 p-3 rounded-xl space-y-2">
+                <label class="block text-xs font-semibold text-amber-800">📦 進貨規格設定</label>
+                <div class="flex items-center gap-2 text-sm">
+                    <span class="text-xs text-slate-600 font-medium">1</span>
+                    <input id="matPackUnit" placeholder="包" class="w-20 border bg-white p-1.5 rounded-lg text-center text-xs" value="包">
+                    <span class="text-xs text-slate-600 font-medium">=</span>
+                    <input id="matConvQty" type="number" placeholder="500" class="w-28 border bg-white p-1.5 rounded-lg text-xs" value="500">
+                    <input id="matConvUnit" placeholder="g" class="w-20 border bg-white p-1.5 rounded-lg text-center text-xs" value="g">
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">初始基礎量 (選填)</label>
+                    <input id="matBaseQty" type="number" placeholder="0" class="w-full border p-2 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">安全庫存警戒量</label>
+                    <input id="matSafe" type="number" placeholder="5" class="w-full border p-2 rounded-lg text-sm" value="5">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 pt-1"><button onclick="closeModal('modalInventory')" class="px-3 py-1.5 text-xs text-slate-500">取消</button><button onclick="saveInventoryItem()" class="bg-orange-600 text-white px-4 py-1.5 rounded-lg text-xs font-medium">新增保存</button></div>
+        </div>
+    </div>
+
+    <!-- 彈窗：新增/編輯詳細進貨記錄 -->
+    <div id="modalPurchase" class="fixed inset-0 bg-slate-900/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-2xl p-5 space-y-3">
+            <h3 id="purModalTitle" class="font-bold text-base">🛒 詳細進貨登記</h3>
+            <input type="hidden" id="purEditIndex" value="-1">
+            <div class="grid grid-cols-2 gap-2">
+                <div><label class="block text-xs text-slate-400 mb-1">採買日期</label><input id="pDate" type="date" class="w-full border p-2 rounded-lg text-sm"></div>
+                <div><label class="block text-xs text-slate-400 mb-1">商品到期日</label><input id="pExp" type="date" class="w-full border p-2 rounded-lg text-sm"></div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">材料名稱</label>
+                    <input id="pName" list="materialNameOptions" placeholder="選擇或輸入材料" class="w-full border p-2.5 rounded-lg text-sm">
+                    <datalist id="materialNameOptions"></datalist>
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">廠牌</label>
+                    <input id="pBrand" placeholder="廠牌" class="w-full border p-2.5 rounded-lg text-sm">
+                </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">進貨數量(包/個)</label>
+                    <input id="pQty" type="number" placeholder="例如: 2" oninput="calcPurchaseTotal()" class="w-full border p-2.5 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">單價 ($)</label>
+                    <input id="pUnitPrice" type="number" placeholder="單價" oninput="calcPurchaseTotal()" class="w-full border p-2.5 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">總價</label>
+                    <input id="pTotalCost" type="text" placeholder="自動計算" readonly class="w-full bg-slate-50 border p-2.5 rounded-lg text-sm text-orange-600 font-bold">
+                </div>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div><label class="block text-xs text-slate-400 mb-1">採買途徑</label><input id="pChannel" list="channelOptions" placeholder="例如: 烘焙行" class="w-full border p-2.5 rounded-lg text-sm"><datalist id="channelOptions"></datalist></div>
+                <div><label class="block text-xs text-slate-400 mb-1">發票號碼</label><input id="pInvoice" placeholder="發票號碼" class="w-full border p-2.5 rounded-lg text-sm"></div>
+            </div>
+            <div class="flex justify-end gap-2 pt-2"><button onclick="closeModal('modalPurchase')" class="px-3 py-1.5 text-xs text-slate-500">取消</button><button onclick="savePurchaseItem()" class="bg-sky-600 text-white px-4 py-1.5 rounded-lg text-xs">確認儲存</button></div>
+        </div>
+    </div>
+
+    <!-- 彈窗：新增/編輯消耗登記 -->
+    <div id="modalConsumption" class="fixed inset-0 bg-slate-900/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl p-5 space-y-3">
+            <h3 id="conModalTitle" class="font-bold text-base">📉 消耗登記</h3>
+            <input type="hidden" id="conEditIndex" value="-1">
+            <div><label class="block text-xs text-slate-400 mb-1">消耗日期</label><input id="cDate" type="date" class="w-full border p-2.5 rounded-lg text-sm"></div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">材料名稱</label>
+                <input id="cName" list="inventoryNameOptions" placeholder="選擇或輸入材料" class="w-full border p-2.5 rounded-lg text-sm">
+                <datalist id="inventoryNameOptions"></datalist>
+            </div>
+            <div>
+                <label class="block text-xs text-slate-400 mb-1">用途類型</label>
+                <select id="cType" class="w-full border p-2.5 rounded-lg text-sm">
+                    <option value="生產消耗">生產消耗</option><option value="研發試做">研發試做</option><option value="庫存盤損">庫存盤損</option><option value="過期報廢">過期報廢</option><option value="其他">其他</option>
+                </select>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">消耗數量 (如重量g)</label>
+                    <input id="cQty" type="number" placeholder="例如: 250" class="w-full border p-2.5 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-slate-400 mb-1">單位</label>
+                    <input id="cUnit" list="unitOptions" placeholder="g" class="w-full border p-2.5 rounded-lg text-sm" value="g">
+                    <datalist id="unitOptions"><option value="g"><option value="kg"><option value="ml"><option value="個"><option value="片"></datalist>
+                </div>
+            </div>
+            <div><label class="block text-xs text-slate-400 mb-1">備註說明</label><input id="cNote" placeholder="選填" class="w-full border p-2.5 rounded-lg text-sm"></div>
+            <div class="flex justify-end gap-2 pt-1"><button onclick="closeModal('modalConsumption')" class="px-3 py-1.5 text-xs text-slate-500">取消</button><button onclick="saveConsumptionItem()" class="bg-rose-600 text-white px-4 py-1.5 rounded-lg text-xs">確認儲存</button></div>
+        </div>
+    </div>
+
+    <!-- 核心邏輯 -->
+    <script>
+        const API_URL = window.location.href.split('?')[0];
+        let db = { orders: [], boms: [], inventory: [], purchases: [], consumption: [] };
+
+        window.onload = async () => {
+            let savedData = localStorage.getItem('bakeryOS_data');
+            if (savedData) {
+                try { db = JSON.parse(savedData); } catch (e) { console.log('讀取本機資料失敗'); }
+            }
+
+            // 預設示範資料（如果完全空白）
+            if (db.inventory.length === 0) {
+                db.inventory.push({ name: '黃油', brand: '安佳', packUnit: '包', convQty: 500, convUnit: 'g', baseQty: 0, safe: 5 });
+                db.inventory.push({ name: '低筋麵粉', brand: '日本粉', packUnit: '包', convQty: 1000, convUnit: 'g', baseQty: 0, safe: 5 });
+                db.boms.push({ product: '黃油曲奇', material: '黃油', qty: 30, unit: 'g', note: '基準配方' });
+                db.boms.push({ product: '黃油曲奇', material: '低筋麵粉', qty: 50, unit: 'g', note: '基準配方' });
+            }
+
+            let now = new Date();
+            let todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            if(document.getElementById('reportStart')) document.getElementById('reportStart').value = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-01`;
+            if(document.getElementById('reportEnd')) document.getElementById('reportEnd').value = todayStr;
+            
+            saveAndRender();
+        };
+
+        async function saveAndRender() {
+            renderAll();
+            localStorage.setItem('bakeryOS_data', JSON.stringify(db));
+        }
+
+        function switchTab(tab) {
+            ['orders', 'boms', 'inventory', 'purchases', 'consumption', 'reports'].forEach(t => {
+                let viewElem = document.getElementById('view' + capitalize(t));
+                if(viewElem) viewElem.classList.add('hidden');
+                let btnId = t === 'orders' ? 'tabOrd' : t === 'boms' ? 'tabBom' : t === 'inventory' ? 'tabInv' : t === 'purchases' ? 'tabPur' : t === 'consumption' ? 'tabCon' : 'tabRep';
+                let btnElem = document.getElementById(btnId);
+                if(btnElem) btnElem.className = "px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-500 whitespace-nowrap";
+            });
+            let targetView = document.getElementById('view' + capitalize(tab));
+            if(targetView) targetView.classList.remove('hidden');
+            let activeBtnId = tab === 'orders' ? 'tabOrd' : tab === 'boms' ? 'tabBom' : tab === 'inventory' ? 'tabInv' : tab === 'purchases' ? 'tabPur' : tab === 'consumption' ? 'tabCon' : 'tabRep';
+            let activeBtn = document.getElementById(activeBtnId);
+            if(activeBtn) activeBtn.className = "px-3 py-1.5 rounded-lg text-xs font-semibold bg-orange-50 text-orange-600 whitespace-nowrap";
+            
+            updateDropdowns();
+            generateReport();
+        }
+
+        function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+        function updateDropdowns() {
+    let channels = [...new Set((db.purchases || []).map(p => p.channel).filter(Boolean))];
+    let channelHtml = '';
+    channels.forEach(ch => { channelHtml += `<option value="${ch}">${ch}</option>`; });
+    if(document.getElementById('channelOptions')) document.getElementById('channelOptions').innerHTML = channelHtml;
+
+    let materialNames = [...new Set((db.inventory || []).map(i => i.name).filter(Boolean))];
+    let mathHtml = '';
+    materialNames.forEach(m => { mathHtml += `<option value="${m}">${m}</option>`; });
+    if(document.getElementById('materialNameOptions')) document.getElementById('materialNameOptions').innerHTML = mathHtml;
+    if(document.getElementById('inventoryNameOptions')) document.getElementById('inventoryNameOptions').innerHTML = mathHtml;
+
+    let productNames = [...new Set((db.boms || []).map(b => b.product).filter(Boolean))];
+    let prodHtml = '';
+    productNames.forEach(p => { prodHtml += `<option value="${p}">${p}</option>`; });
+    if(document.getElementById('bomProductOptions')) document.getElementById('bomProductOptions').innerHTML = prodHtml;
+}
+
+        function calcPurchaseTotal() {
+            let qty = parseFloat(document.getElementById('pQty').value) || 0;
+            let unitPrice = parseFloat(document.getElementById('pUnitPrice').value) || 0;
+            document.getElementById('pTotalCost').value = 'NT$ ' + (qty * unitPrice);
+        }
+
+        function generateAutoOrderId(dateStr, excludeIndex = -1) {
+            if (!dateStr) return '';
+            let prefix = dateStr.replace(/-/g, '');
+            let count = 0;
+            db.orders.forEach((o, idx) => {
+                if (idx !== excludeIndex && o.orderId && o.orderId.startsWith(prefix)) {
+                    count++;
+                }
+            });
+            let seq = String(count + 1).padStart(3, '0');
+            return prefix + seq;
+        }
+
+        function onOrderDateChange() {
+            let dateStr = document.getElementById('oDate').value;
+            let editIndex = parseInt(document.getElementById('ordEditIndex').value);
+            let newId = generateAutoOrderId(dateStr, editIndex);
+            document.getElementById('oId').value = newId;
+        }
+
+        // --- 訂單管理 (含自動觸發 BOM 消耗) ---
+        function openOrderModal() {
+            let now = new Date();
+            let todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            document.getElementById('ordEditIndex').value = '-1';
+            document.getElementById('ordModalTitle').innerText = '📋 新增客戶訂單';
+            document.getElementById('oDate').value = todayStr;
+            document.getElementById('oId').value = generateAutoOrderId(todayStr, -1);
+            document.getElementById('oCustomer').value = '';
+            document.getElementById('oPhone').value = '';
+            document.getElementById('oItemName').value = '';
+            document.getElementById('oQty').value = '1';
+            document.getElementById('oTotal').value = '';
+            document.getElementById('oPayStatus').value = '未付款';
+            document.getElementById('oStatus').value = '已完成';
+            document.getElementById('modalOrder').classList.remove('hidden');
+        }
+
+        function editOrder(index) {
+            let o = db.orders[index];
+            document.getElementById('ordEditIndex').value = index;
+            document.getElementById('ordModalTitle').innerText = '✏️ 編輯客戶訂單';
+            document.getElementById('oId').value = o.orderId || '';
+            document.getElementById('oDate').value = o.date || '';
+            document.getElementById('oCustomer').value = o.customer || '';
+            document.getElementById('oPhone').value = o.phone || '';
+            document.getElementById('oItemName').value = o.itemName || '';
+            document.getElementById('oQty').value = o.qty || 1;
+            document.getElementById('oTotal').value = o.total || 0;
+            document.getElementById('oPayStatus').value = o.payStatus || '未付款';
+            document.getElementById('oStatus').value = o.status || '待出貨';
+            document.getElementById('modalOrder').classList.remove('hidden');
+        }
+
+        function saveOrderItem() {
+            let index = parseInt(document.getElementById('ordEditIndex').value);
+            let orderId = document.getElementById('oId').value.trim();
+            let date = document.getElementById('oDate').value;
+            let customer = document.getElementById('oCustomer').value.trim();
+            let phone = document.getElementById('oPhone').value.trim();
+            let itemName = document.getElementById('oItemName').value.trim();
+            let qty = parseFloat(document.getElementById('oQty').value) || 1;
+            let total = parseFloat(document.getElementById('oTotal').value) || 0;
+            let payStatus = document.getElementById('oPayStatus').value;
+            let status = document.getElementById('oStatus').value;
+
+            if (!customer || !itemName) { alert('請填寫客戶姓名與品項名稱'); return; }
+            if (index === -1 && !orderId) { orderId = generateAutoOrderId(date, -1); }
+
+            let orderData = { orderId, date, customer, phone, itemName, qty, total, payStatus, status };
+            
+            if (index === -1) { 
+                db.orders.unshift(orderData); 
+            } else { 
+                db.orders[index] = orderData; 
+            }
+
+            if (status === '已完成') {
+                let relatedBoms = db.boms.filter(b => b.product.trim() === itemName.trim());
+                relatedBoms.forEach(b => {
+                    let consumedAmount = b.qty * qty;
+                    db.consumption.unshift({
+                        date: date,
+                        name: b.material,
+                        type: '生產消耗',
+                        qty: consumedAmount,
+                        unit: b.unit || 'g',
+                        note: `訂單自動扣料 (${orderId} - ${itemName} x${qty})`
+                    });
+                });
+            }
+
+            saveAndRender();
+            closeModal('modalOrder');
+        }
+
+        // --- 一次性多原料 BOM 配方管理 ---
+        function openBomModal(editProduct = '') {
+            document.getElementById('bomEditProduct').value = editProduct;
+            let container = document.getElementById('bomRowsContainer');
+            container.innerHTML = '';
+
+            if (editProduct) {
+                document.getElementById('bomModalTitle').innerText = '✏️ 編輯產品配方 (BOM)';
+                document.getElementById('bProduct').value = editProduct;
+                document.getElementById('bProduct').disabled = true; // 編輯時固定產品名
+                
+                let matchingBoms = db.boms.filter(b => b.product === editProduct);
+                matchingBoms.forEach(b => {
+                    addBomRow(b.material, b.qty, b.note);
+                });
+            } else {
+                document.getElementById('bomModalTitle').innerText = '📜 新增產品配方 (BOM)';
+                document.getElementById('bProduct').value = '';
+                document.getElementById('bProduct').disabled = false;
+                addBomRow(); // 預設給一行
+            }
+            document.getElementById('modalBom').classList.remove('hidden');
+        }
+
+        function addBomRow(material = '', qty = '', note = '') {
+            let container = document.getElementById('bomRowsContainer');
+            let rowId = 'bom_row_' + Date.now() + Math.random().toString(36).substr(2, 5);
+            let materialNames = [...new Set(db.inventory.map(i => i.name).filter(Boolean))];
+            let datalistOptions = materialNames.map(m => `<option value="${m}">`).join('');
+
+            let rowDiv = document.createElement('div');
+            rowDiv.className = "flex gap-2 items-center bg-white p-2 rounded border";
+            rowDiv.id = rowId;
+            rowDiv.innerHTML = `
+                <div class="flex-1">
+                    <input type="text" placeholder="原料名稱" list="matOpt_${rowId}" value="${material}" class="bom-mat w-full border p-1.5 rounded text-xs">
+                    <datalist id="matOpt_${rowId}">${datalistOptions}</datalist>
+                </div>
+                <div class="w-24">
+                    <input type="number" placeholder="消耗量" value="${qty}" class="bom-qty w-full border p-1.5 rounded text-xs">
+                </div>
+                <div class="w-12 text-center text-xs text-slate-500 font-medium">g</div>
+                <div class="flex-1">
+                    <input type="text" placeholder="備註 (選填)" value="${note}" class="bom-note w-full border p-1.5 rounded text-xs">
+                </div>
+                <button type="button" onclick="document.getElementById('${rowId}').remove()" class="text-red-500 hover:text-red-700 px-2 text-xs font-bold">✕</button>
+            `;
+            container.appendChild(rowDiv);
+        }
+
+        function saveBomRecipe() {
+            let product = document.getElementById('bProduct').value.trim();
+            let editProduct = document.getElementById('bomEditProduct').value;
+
+            if (!product) { alert('請填寫成品名稱'); return; }
+
+            let rows = document.querySelectorAll('#bomRowsContainer > div');
+            if (rows.length === 0) { alert('請至少新增一項原物料'); return; }
+
+            let newBomEntries = [];
+            let isValid = true;
+
+            rows.forEach(row => {
+                let mat = row.querySelector('.bom-mat').value.trim();
+                let qty = parseFloat(row.querySelector('.bom-qty').value);
+                let note = row.querySelector('.bom-note').value.trim();
+
+                if (!mat || isNaN(qty)) {
+                    isValid = false;
+                } else {
+                    newBomEntries.push({ product: product, material: mat, qty: qty, unit: 'g', note: note });
+                }
+            });
+
+            if (!isValid) { alert('請完整填寫所有原料的名稱與有效消耗量數字'); return; }
+
+            // [已修正] 自動覆蓋同名或正在編輯的舊配方，避免阻擋儲存
+            db.boms = db.boms.filter(b => b.product !== product && b.product !== editProduct);
+
+            // 批量推入新明細
+            db.boms.push(...newBomEntries);
+            saveAndRender();
+            closeModal('modalBom');
+        }
+
+        function deleteBomProduct(productName) {
+            if (confirm(`確定要刪除「${productName}」的整組配方嗎？`)) {
+                db.boms = db.boms.filter(b => b.product !== productName);
+                saveAndRender();
+            }
+        }
+
+        // --- 庫存主檔管理 ---
+        function openModal(id) {
+            document.getElementById('invEditIndex').value = '-1';
+            document.getElementById('invModalTitle').innerText = '➕ 新增原物料主檔';
+            document.getElementById('matName').value = '';
+            document.getElementById('matBrand').value = '';
+            document.getElementById('matPackUnit').value = '包';
+            document.getElementById('matConvQty').value = '500';
+            document.getElementById('matConvUnit').value = 'g';
+            document.getElementById('matBaseQty').value = '';
+            document.getElementById('matSafe').value = '5';
+            document.getElementById(id).classList.remove('hidden');
+        }
+
+        function editInventory(index) {
+            let item = db.inventory[index];
+            document.getElementById('invEditIndex').value = index;
+            document.getElementById('invModalTitle').innerText = '✏️ 編輯原物料主檔';
+            document.getElementById('matName').value = item.name;
+            document.getElementById('matBrand').value = item.brand || '';
+            document.getElementById('matPackUnit').value = item.packUnit || '包';
+            document.getElementById('matConvQty').value = item.convQty !== undefined ? item.convQty : 500;
+            document.getElementById('matConvUnit').value = item.convUnit || 'g';
+            document.getElementById('matBaseQty').value = item.baseQty !== undefined ? item.baseQty : 0;
+            document.getElementById('matSafe').value = item.safe !== undefined ? item.safe : 5;
+            document.getElementById('modalInventory').classList.remove('hidden');
+        }
+
+        function saveInventoryItem() {
+            let index = parseInt(document.getElementById('invEditIndex').value);
+            let name = document.getElementById('matName').value.trim();
+            let brand = document.getElementById('matBrand').value.trim();
+            let packUnit = document.getElementById('matPackUnit').value.trim() || '包';
+            let convQty = parseFloat(document.getElementById('matConvQty').value) || 500;
+            let convUnit = document.getElementById('matConvUnit').value.trim() || 'g';
+            let baseQty = parseFloat(document.getElementById('matBaseQty').value) || 0;
+            let safe = parseFloat(document.getElementById('matSafe').value);
+
+            if (!name) { alert('請填寫材料名稱'); return; }
+
+            let itemData = { name, brand, packUnit, convQty, convUnit, baseQty, safe: isNaN(safe)?5:safe };
+            if (index === -1) {
+                db.inventory.push(itemData);
+            } else {
+                db.inventory[index] = itemData;
+            }
+            saveAndRender();
+            closeModal('modalInventory');
+        }
+
+        // --- 進貨記錄管理 ---
+        function openPurchaseModal() {
+            let now = new Date();
+            let todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            document.getElementById('purEditIndex').value = '-1';
+            document.getElementById('purModalTitle').innerText = '🛒 詳細進貨登記';
+            document.getElementById('pDate').value = todayStr;
+            document.getElementById('pExp').value = '';
+            document.getElementById('pName').value = '';
+            document.getElementById('pBrand').value = '';
+            document.getElementById('pQty').value = '';
+            document.getElementById('pUnitPrice').value = '';
+            document.getElementById('pTotalCost').value = '';
+            document.getElementById('pChannel').value = '';
+            document.getElementById('pInvoice').value = '';
+            document.getElementById('modalPurchase').classList.remove('hidden');
+        }
+
+        function editPurchase(index) {
+            let p = db.purchases[index];
+            document.getElementById('purEditIndex').value = index;
+            document.getElementById('purModalTitle').innerText = '✏️ 編輯進貨記錄';
+            document.getElementById('pDate').value = p.date || '';
+            document.getElementById('pExp').value = p.exp || '';
+            document.getElementById('pName').value = p.name || '';
+            document.getElementById('pBrand').value = p.brand || '';
+            document.getElementById('pQty').value = p.qty || 0;
+            document.getElementById('pUnitPrice').value = p.unitPrice || 0;
+            document.getElementById('pChannel').value = p.channel || '';
+            document.getElementById('pInvoice').value = p.invoice || '';
+            calcPurchaseTotal();
+            document.getElementById('modalPurchase').classList.remove('hidden');
+        }
+
+        function savePurchaseItem() {
+            let index = parseInt(document.getElementById('purEditIndex').value);
+            let date = document.getElementById('pDate').value;
+            let exp = document.getElementById('pExp').value;
+            let name = document.getElementById('pName').value.trim();
+            let brand = document.getElementById('pBrand').value.trim();
+            let qty = parseFloat(document.getElementById('pQty').value);
+            let unitPrice = parseFloat(document.getElementById('pUnitPrice').value);
+            let channel = document.getElementById('pChannel').value.trim();
+            let invoice = document.getElementById('pInvoice').value.trim();
+
+            if (!name || isNaN(qty) || isNaN(unitPrice)) { alert('請填寫完整材料名稱、進貨數量與單價'); return; }
+            let cost = qty * unitPrice;
+
+            let target = db.inventory.find(i => i.name.trim() === name);
+            if (!target) {
+                db.inventory.push({ name, brand: brand||'', packUnit: '包', convQty: 500, convUnit: 'g', baseQty: 0, safe: 5 });
+            } else if (brand && !target.brand) {
+                target.brand = brand;
+            }
+
+            let purchaseData = { date, exp, name, brand, qty, unitPrice, cost, channel, invoice };
+            if (index === -1) {
+                db.purchases.unshift(purchaseData);
+            } else {
+                db.purchases[index] = purchaseData;
+            }
+
+            saveAndRender();
+            closeModal('modalPurchase');
+        }
+
+        // --- 消耗登記管理 ---
+        function openConsumptionModal() {
+            let now = new Date();
+            let todayStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+            document.getElementById('conEditIndex').value = '-1';
+            document.getElementById('conModalTitle').innerText = '📉 新增消耗登記';
+            document.getElementById('cDate').value = todayStr;
+            document.getElementById('cName').value = '';
+            document.getElementById('cType').value = '生產消耗';
+            document.getElementById('cQty').value = '';
+            document.getElementById('cUnit').value = 'g';
+            document.getElementById('cNote').value = '';
+            document.getElementById('modalConsumption').classList.remove('hidden');
+        }
+
+        function editConsumption(index) {
+            let c = db.consumption[index];
+            document.getElementById('conEditIndex').value = index;
+            document.getElementById('conModalTitle').innerText = '✏️ 編輯消耗登記';
+            document.getElementById('cDate').value = c.date || '';
+            document.getElementById('cName').value = c.name || '';
+            document.getElementById('cType').value = c.type || '生產消耗';
+            document.getElementById('cQty').value = c.qty || 0;
+            document.getElementById('cUnit').value = c.unit || 'g';
+            document.getElementById('cNote').value = c.note || '';
+            document.getElementById('modalConsumption').classList.remove('hidden');
+        }
+
+        function saveConsumptionItem() {
+            let index = parseInt(document.getElementById('conEditIndex').value);
+            let date = document.getElementById('cDate').value;
+            let name = document.getElementById('cName').value.trim();
+            let type = document.getElementById('cType').value;
+            let qty = parseFloat(document.getElementById('cQty').value);
+            let unit = document.getElementById('cUnit').value.trim() || 'g';
+            let note = document.getElementById('cNote').value.trim();
+
+            if (!name || isNaN(qty)) { alert('請填寫消耗名稱與數量'); return; }
+
+            let target = db.inventory.find(i => i.name.trim() === name);
+            if (!target) {
+                db.inventory.push({ name, brand: '', packUnit: '包', convQty: 500, convUnit: 'g', baseQty: 0, safe: 5 });
+            }
+
+            let consumptionData = { date, name, type, qty, unit, note };
+            if (index === -1) {
+                db.consumption.unshift(consumptionData);
+            } else {
+                db.consumption[index] = consumptionData;
+            }
+
+            saveAndRender();
+            closeModal('modalConsumption');
+        }
+
+        // --- 刪除總管 ---
+        function deleteItem(type, index) {
+            if(confirm('確定要刪除這筆記錄嗎？')) {
+                db[type].splice(index, 1);
+                saveAndRender();
+            }
+        }
+
+        // --- 核心動態重算邏輯 ---
+        function calculateRealtimeInventory() {
+            db.inventory.forEach(item => {
+                let base = item.baseQty !== undefined ? item.baseQty : 0;
+                if (isNaN(base)) base = 0;
+
+                let conv = item.convQty !== undefined ? item.convQty : 500;
+                if (isNaN(conv) || conv <= 0) conv = 1;
+
+                let totalPurchasedBase = db.purchases
+                    .filter(p => p.name.trim() === item.name.trim())
+                    .reduce((sum, p) => sum + ((p.qty || 0) * conv), 0);
+
+                let totalConsumed = db.consumption
+                    .filter(c => c.name.trim() === item.name.trim())
+                    .reduce((sum, c) => sum + (c.qty || 0), 0);
+
+                item.totalQty = base + totalPurchasedBase - totalConsumed;
+            });
+        }
+
+        function renderAll() {
+            calculateRealtimeInventory();
+
+            // 1. 渲染訂單
+            let ordHtml = '';
+            if(db.orders) {
+                db.orders.forEach((o, i) => {
+                    let statusColor = o.status === '已完成' ? 'bg-emerald-50 text-emerald-700' : o.status === '製作中' ? 'bg-amber-50 text-amber-700' : o.status === '已取消' ? 'bg-slate-100 text-slate-500' : 'bg-sky-50 text-sky-700';
+                    let payColor = o.payStatus === '已付款' ? 'text-emerald-600 font-semibold' : 'text-rose-500';
+                    ordHtml += `<tr class="hover:bg-slate-50">
+                        <td class="p-3 font-mono text-xs text-slate-500">${o.orderId||'-'}</td>
+                        <td class="p-3"><div class="font-semibold">${o.customer}</div><div class="text-xs text-slate-400">${o.phone||'-'}</div></td>
+                        <td class="p-3 font-medium text-slate-700">${o.date||'-'}</td>
+                        <td class="p-3"><span class="font-semibold">${o.itemName}</span> <span class="text-xs text-slate-500">(x${o.qty})</span></td>
+                        <td class="p-3 font-bold text-orange-600">$${o.total||0}</td>
+                        <td class="p-3 text-xs ${payColor}">${o.payStatus||'未付款'}</td>
+                        <td class="p-3"><span class="${statusColor} px-2 py-0.5 rounded text-xs font-medium">${o.status||'待出貨'}</span></td>
+                        <td class="p-3 text-center space-x-2">
+                            <button onclick="editOrder(${i})" class="text-indigo-600 text-xs font-medium">編輯</button>
+                            <button onclick="deleteItem('orders', ${i})" class="text-red-500 text-xs">刪除</button>
+                        </td>
+                    </tr>`;
+                });
+            }
+            if(document.getElementById('tableOrders')) document.getElementById('tableOrders').innerHTML = ordHtml || `<tr><td colspan="8" class="p-4 text-center text-slate-400">尚無客戶訂單記錄</td></tr>`;
+
+            // 1.5 渲染 BOM 配方 (以產品群組呈現)
+            let bomHtml = '';
+            if(db.boms && db.boms.length > 0) {
+                // 依產品名稱分組
+                let groupedBoms = {};
+                db.boms.forEach(b => {
+                    if (!groupedBoms[b.product]) groupedBoms[b.product] = [];
+                    groupedBoms[b.product].push(b);
+                });
+
+                Object.keys(groupedBoms).forEach(productName => {
+                    let items = groupedBoms[productName];
+                    let itemsListHtml = items.map(item => `
+                        <span class="inline-block bg-amber-50 border border-amber-200 text-amber-900 px-2 py-1 rounded text-xs mr-1 mb-1 font-medium">
+                            ${item.material}: <strong class="text-orange-600">${item.qty}</strong> ${item.unit || 'g'} ${item.note ? '('+item.note+')' : ''}
+                        </span>
+                    `).join('');
+
+                    bomHtml += `<tr class="hover:bg-slate-50 align-top">
+                        <td class="p-3 font-bold text-slate-800">${productName}</td>
+                        <td class="p-3">${itemsListHtml}</td>
+                        <td class="p-3 text-center space-x-2 whitespace-nowrap">
+                            <button onclick="openBomModal('${productName}')" class="text-indigo-600 text-xs font-medium">編輯配方</button>
+                            <button onclick="deleteBomProduct('${productName}')" class="text-red-500 text-xs">刪除整組</button>
+                        </td>
+                    </tr>`;
+                });
+            }
+            if(document.getElementById('tableBoms')) document.getElementById('tableBoms').innerHTML = bomHtml || `<tr><td colspan="3" class="p-4 text-center text-slate-400">尚無產品配方設定</td></tr>`;
+
+            // 2. 渲染庫存主表
+            let invHtml = '';
+            db.inventory.forEach((item, i) => {
+                let qtyColor = item.totalQty < 0 ? 'text-rose-600 font-bold' : 'text-slate-700 font-bold';
+                let packU = item.packUnit || '包';
+                let convQ = item.convQty || 500;
+                let convU = item.convUnit || 'g';
+                
+                invHtml += `<tr class="hover:bg-slate-50">
+                    <td class="p-3 font-semibold">${item.name}</td>
+                    <td class="p-3">${item.brand||'-'}</td>
+                    <td class="p-3 text-xs text-slate-600 font-mono">1 ${packU} = ${convQ} ${convU}</td>
+                    <td class="p-3 ${qtyColor}">${item.totalQty} ${convU}</td>
+                    <td class="p-3">${item.safe !== undefined ? item.safe : 5} ${packU}</td>
+                    <td class="p-3 text-center space-x-2">
+                        <button onclick="editInventory(${i})" class="text-indigo-600 text-xs font-medium">編輯</button>
+                        <button onclick="deleteItem('inventory', ${i})" class="text-red-500 text-xs">刪除</button>
+                    </td>
+                </tr>`;
+            });
+            if(document.getElementById('tableInventory')) document.getElementById('tableInventory').innerHTML = invHtml || `<tr><td colspan="6" class="p-4 text-center text-slate-400">尚無庫存資料</td></tr>`;
+            
+            // 3. 渲染進貨
+            let purHtml = '';
+            db.purchases.forEach((p, i) => {
+                let matchedInv = db.inventory.find(inv => inv.name.trim() === p.name.trim());
+                let convQ = matchedInv ? (matchedInv.convQty || 500) : 500;
+                let convU = matchedInv ? (matchedInv.convUnit || 'g') : 'g';
+                let packU = matchedInv ? (matchedInv.packUnit || '包') : '包';
+                let totalConverted = (p.qty || 0) * convQ;
+
+                purHtml += `<tr class="hover:bg-slate-50">
+                    <td class="p-3">${p.date||'-'}</td>
+                    <td class="p-3 font-semibold">${p.name}</td>
+                    <td class="p-3">${p.brand||'-'}</td>
+                    <td class="p-3">${p.qty} ${packU}</td>
+                    <td class="p-3 text-sky-700 font-medium">${totalConverted} ${convU}</td>
+                    <td class="p-3">$${p.unitPrice||0}</td>
+                    <td class="p-3 text-orange-600 font-bold">$${p.cost||0}</td>
+                    <td class="p-3 text-slate-500">${p.exp||'-'}</td>
+                    <td class="p-3">${p.channel||'-'}</td>
+                    <td class="p-3 text-slate-500 text-xs">${p.invoice||'-'}</td>
+                    <td class="p-3 text-center space-x-2">
+                        <button onclick="editPurchase(${i})" class="text-indigo-600 text-xs font-medium">編輯</button>
+                        <button onclick="deleteItem('purchases', ${i})" class="text-red-500 text-xs">刪除</button>
+                    </td>
+                </tr>`;
+            });
+            if(document.getElementById('tablePurchases')) document.getElementById('tablePurchases').innerHTML = purHtml || `<tr><td colspan="11" class="p-4 text-center text-slate-400">尚無進貨記錄</td></tr>`;
+            
+            // 4. 渲染消耗
+            let conHtml = '';
+            if(db.consumption) {
+                db.consumption.forEach((c, i) => {
+                    conHtml += `<tr class="hover:bg-slate-50">
+                        <td class="p-3">${c.date||'-'}</td>
+                        <td class="p-3 font-semibold">${c.name}</td>
+                        <td class="p-3"><span class="bg-amber-50 text-amber-700 px-2 py-0.5 rounded text-xs">${c.type || '生產消耗'}</span></td>
+                        <td class="p-3 text-rose-600 font-bold">-${c.qty} ${c.unit || 'g'}</td>
+                        <td class="p-3 text-slate-500">${c.note||'-'}</td>
+                        <td class="p-3 text-center space-x-2">
+                            <button onclick="editConsumption(${i})" class="text-indigo-600 text-xs font-medium">編輯</button>
+                            <button onclick="deleteItem('consumption', ${i})" class="text-red-500 text-xs">刪除</button>
+                        </td>
+                    </tr>`;
+                });
+            }
+            if(document.getElementById('tableConsumption')) document.getElementById('tableConsumption').innerHTML = conHtml || `<tr><td colspan="6" class="p-4 text-center text-slate-400">尚無消耗記錄</td></tr>`;
+            
+            updateDropdowns();
+            generateReport();
+        }
+
+        function generateReport() {
+            let totalCost = db.purchases.reduce((sum, p) => sum + (p.cost || 0), 0);
+            let totalOrders = db.orders ? db.orders.length : 0;
+            let totalConsumption = db.consumption ? db.consumption.length : 0;
+            if(document.getElementById('repTotalOrders')) document.getElementById('repTotalOrders').innerText = totalOrders + ' 筆';
+            if(document.getElementById('repTotalCost')) document.getElementById('repTotalCost').innerText = 'NT$ ' + totalCost.toLocaleString();
+            if(document.getElementById('repTotalConCount')) document.getElementById('repTotalConCount').innerText = totalConsumption + ' 筆';
+        }
+    </script>
+</body>
+</html>
